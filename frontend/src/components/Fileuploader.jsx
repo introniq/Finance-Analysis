@@ -1,31 +1,42 @@
 // Fileuploader.jsx
-import React, { useState, useRef } from "react";
-import { Container, Row, Col, Card, Form, Button, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  Form,
+  Button,
+  OverlayTrigger,
+  Tooltip,
+  Alert,
+  Spinner
+} from "react-bootstrap";
+import { motion } from "framer-motion";
 import Analysis from "./Analysis";
-import { motion } from 'framer-motion';
 
-export default function FileAnalysisUploader() {
+export default function FileAnalysisUploader({ historyFile = null }) {
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [params, setParams] = useState({
-    algorithm: "kmeans",
+    algorithm: "KMeans",
     daysAhead: "10",
     windowSize: "10",
     clusters: "3",
     rsiPeriod: "14",
-    adxPeriod: "14"
+    adxPeriod: "14",
   });
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const uploadRef = useRef(null);
-  const API_BASE = 'http://localhost:8050';
+  const API_BASE = "http://localhost:8050";
 
-  const handleFile = (files) => { 
+  const handleFile = (files) => {
     if (files && files[0]) {
       setFile(files[0]);
-      setError(null); // Clear any previous errors
+      setError(null);
     }
   };
 
@@ -40,50 +51,82 @@ export default function FileAnalysisUploader() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files);
+    if (e.dataTransfer.files && e.dataTransfer.files[0])
+      handleFile(e.dataTransfer.files);
   };
 
   const handleChangeFile = (e) => handleFile(e.target.files);
-
-  const handleChangeParams = (e) => setParams({ ...params, [e.target.name]: e.target.value });
+  const handleChangeParams = (e) =>
+    setParams({ ...params, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      setError("Please select a file.");
-      return;
+  e.preventDefault();
+  if (!file) {
+    setError("Please select a file.");
+    return;
+  }
+  setLoading(true);
+  setError(null);
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("params", JSON.stringify(params));
+
+  try {
+    // 1️⃣ Analyze request
+    const response = await fetch(`${API_BASE}/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    setResults(data);
+    setShowResults(true);
+
+    // 2️⃣ Save file to server history
+    const saveResponse = await fetch(`http://localhost:8051/save-file`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!saveResponse.ok) throw new Error(`Save failed: ${saveResponse.statusText}`);
+  } catch (err) {
+    setError(`Analysis failed: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+    if (historyFile) {
+      runAnalysisFromHistory(historyFile);
     }
+  }, [historyFile]);
+
+  const runAnalysisFromHistory = async (filename) => {
     setLoading(true);
-    setError(null);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('params', JSON.stringify(params));
+    setShowResults(false);
+    setResults(null);
     try {
-      const response = await fetch(`${API_BASE}/analyze`, {
-        method: 'POST',
-        body: formData
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // fetch analysis for existing file
+      const response = await fetch(`${API_BASE}/analyze?file=${filename}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      if (data.error) throw new Error(data.error);
       setResults(data);
       setShowResults(true);
+      setFile({ name: filename }); // just for display
     } catch (err) {
-      setError(`Analysis failed: ${err.message}`);
+      console.error("Analysis failed:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const renderTooltip = (text) => <Tooltip id="tooltip" placement="top">{text}</Tooltip>;
+  const renderTooltip = (text) => <Tooltip>{text}</Tooltip>;
 
   if (error && !loading) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="container mt-4"
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="container mt-4">
         <Alert variant="danger" onClose={() => setError(null)} dismissible className="shadow-lg">
           <div className="d-flex align-items-center">
             <i className="fas fa-exclamation-triangle me-2"></i>
@@ -95,126 +138,212 @@ export default function FileAnalysisUploader() {
   }
 
   return (
-    <Container fluid style={{ height: '88vh', marginTop: '1vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', borderRadius: "12px", boxShadow: "0 8px 32px rgba(0,0,0,0.1)", overflow: 'hidden' }}>
-      <Row className="h-100 justify-content-center align-items-stretch">
+    <Container
+      fluid
+      style={{
+        height: "88vh",
+        marginTop: "1vh",
+        backgroundColor: "#f8f9fa",
+        borderRadius: "12px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        border: "1px solid #dcdcdc",
+        overflowY: "scroll",
+        overflowX: "hidden",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
+      }}
+    >
+      <Row className="justify-content-center gap-3 align-items-stretch">
         {!showResults ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="col-12 d-flex flex-column justify-content-center align-items-center p-4"
-          >
-            <Col xs={12} md={8} className="mb-4">
+          <>
+            {/* File Upload Card */}
+            <Col xs={12} md={8}>
               <Card
                 ref={uploadRef}
-                className={`text-center p-5 rounded-4 border-0 shadow-lg d-flex align-items-center justify-content-center transition-all ${dragActive ? "bg-primary bg-opacity-10 border-primary" : "bg-white"}`}
+                className={`text-center p-3 rounded-4 border-2 shadow-sm d-flex align-items-center justify-content-center ${
+                  dragActive ? "border-primary bg-light" : "border-secondary bg-white"
+                }`}
                 onDragEnter={handleDrag}
                 onDragOver={handleDrag}
                 onDragLeave={handleDrag}
                 onDrop={handleDrop}
-                style={{ transition: "all 0.3s ease", cursor: "pointer", minHeight: "300px", transform: dragActive ? 'scale(1.02)' : 'scale(1)' }}
+                style={{
+                  transition: "all 0.3s",
+                  cursor: "pointer",
+                  minHeight: "200px",
+                  marginTop: "2vh",
+                }}
               >
-                <input type="file" id="file-upload" onChange={handleChangeFile} style={{ display: "none" }} accept=".csv,.xlsx" />
-                <label htmlFor="file-upload" className="w-100 h-100 d-flex flex-column justify-content-center align-items-center">
-                  {dragActive ? (
-                    <div className="text-primary">
-                      <i className="fas fa-cloud-upload-alt fa-3x mb-3"></i>
-                      <h5 className="mb-2">Drop your file here!</h5>
-                      <p className="text-muted">CSV or XLSX files supported</p>
-                    </div>
+                <input
+                  type="file"
+                  id="file-upload"
+                  onChange={handleChangeFile}
+                  style={{ display: "none" }}
+                  accept=".csv,.xlsx"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="d-flex flex-column align-items-center w-100 h-100 justify-content-center"
+                >
+                  <div
+                    className="rounded-circle d-flex align-items-center justify-content-center mb-2"
+                    style={{
+                      width: "90px",
+                      height: "90px",
+                      backgroundColor: dragActive ? "#cce5ff" : "#e9ecef",
+                      transition: "all 0.3s",
+                    }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke={dragActive ? "#0d6efd" : "#6c757d"}
+                      width="36"
+                      height="36"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 16.5V19a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 19v-2.5M7.5 10.5L12 6m0 0l4.5 4.5M12 6v12"
+                      />
+                    </svg>
+                  </div>
+                  {file ? (
+                    <p className="fw-medium text-truncate" style={{ maxWidth: "160px" }}>
+                      📄 {file.name}
+                    </p>
                   ) : (
-                    <div>
-                      <i className="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
-                      <h5 className="mb-2 text-muted">Drag & Drop or Click to Upload</h5>
-                      <p className="text-muted">Upload your stock analysis CSV/XLSX file</p>
-                      {file && <p className="mt-2 bg-success bg-opacity-10 p-2 rounded text-success">{file.name}</p>}
-                    </div>
+                    <>
+                      <p className="fw-bold mb-1">Drag & Drop Your File</p>
+                      <p className="text-muted mb-0">
+                        or <span className="text-primary text-decoration-underline">Browse</span>
+                      </p>
+                    </>
                   )}
                 </label>
               </Card>
             </Col>
+
+            {/* Analysis Parameters Card */}
             <Col xs={12} md={8}>
-              <Card className="shadow-lg border-0 rounded-4 p-4" style={{ background: 'linear-gradient(145deg, #ffffff, #f8f9fa)' }}>
-                <Form onSubmit={handleSubmit}>
-                  <Row>
-                    <Col md={6}>
-                      <Form.Group className="mb-3">
-                        <Form.Label className="fw-bold">Clustering Algorithm</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Choose clustering method for pattern analysis")}>
-                          <Form.Select name="algorithm" value={params.algorithm} onChange={handleChangeParams} className="rounded-3">
-                            <option value="kmeans">KMeans</option>
+              <Card className="p-3 rounded-4 shadow-sm border-1 border-light h-100">
+                <Card.Title className="mb-3 fw-bold border-bottom pb-1">Analysis Parameters</Card.Title>
+                <Form onSubmit={handleSubmit} className="gap-2 d-flex flex-column">
+                  <Row className="mb-2">
+                    <Col>
+                      <Form.Group>
+                        <Form.Label>Clustering Algorithm</Form.Label>
+                        <OverlayTrigger overlay={renderTooltip("Select the clustering method for grouping data")}>
+                          <Form.Select
+                            name="algorithm"
+                            value={params.algorithm}
+                            onChange={handleChangeParams}
+                          >
+                            <option>KMeans</option>
                           </Form.Select>
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
-                    <Col md={6}>
-                      <Form.Group className="mb-3">
-                        <Form.Label className="fw-bold">Prediction Horizon (Days)</Form.Label>
+                    <Col>
+                      <Form.Group>
+                        <Form.Label>Prediction Horizon (Days Ahead)</Form.Label>
                         <OverlayTrigger overlay={renderTooltip("Number of days ahead for price prediction")}>
-                          <Form.Control type="number" name="daysAhead" value={params.daysAhead} onChange={handleChangeParams} className="rounded-3" min="1" />
+                          <Form.Control
+                            type="number"
+                            name="daysAhead"
+                            value={params.daysAhead}
+                            onChange={handleChangeParams}
+                          />
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
                   </Row>
-                  <Row className="mb-3">
-                    <Col md={6}>
+
+                  <Row className="mb-2">
+                    <Col>
                       <Form.Group>
-                        <Form.Label className="fw-bold">Window Size (Days)</Form.Label>
+                        <Form.Label>Window Size (Days)</Form.Label>
                         <OverlayTrigger overlay={renderTooltip("Number of past days to use for rolling analysis")}>
-                          <Form.Control type="number" name="windowSize" value={params.windowSize} onChange={handleChangeParams} className="rounded-3" min="2" />
+                          <Form.Control
+                            type="number"
+                            name="windowSize"
+                            value={params.windowSize}
+                            onChange={handleChangeParams}
+                          />
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
-                    <Col md={6}>
+                    <Col>
                       <Form.Group>
-                        <Form.Label className="fw-bold">Number of Clusters</Form.Label>
+                        <Form.Label>Number of Clusters</Form.Label>
                         <OverlayTrigger overlay={renderTooltip("Applicable for KMeans/Hierarchical clustering")}>
-                          <Form.Control type="number" name="clusters" value={params.clusters} onChange={handleChangeParams} className="rounded-3" min="2" />
+                          <Form.Control
+                            type="number"
+                            name="clusters"
+                            value={params.clusters}
+                            onChange={handleChangeParams}
+                          />
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
                   </Row>
-                  <Row className="mb-3">
-                    <Col md={6}>
+
+                  <Row className="mb-2">
+                    <Col>
                       <Form.Group>
-                        <Form.Label className="fw-bold">RSI Period</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of periods for Relative Strength Index calculation")}>
-                          <Form.Control type="number" name="rsiPeriod" value={params.rsiPeriod} onChange={handleChangeParams} className="rounded-3" min="5" />
+                        <Form.Label>RSI Period</Form.Label>
+                        <OverlayTrigger overlay={renderTooltip("Number of periods for RSI calculation")}>
+                          <Form.Control
+                            type="number"
+                            name="rsiPeriod"
+                            value={params.rsiPeriod}
+                            onChange={handleChangeParams}
+                          />
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
-                    <Col md={6}>
+                    <Col>
                       <Form.Group>
-                        <Form.Label className="fw-bold">ADX Period</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of periods for Average Directional Index calculation")}>
-                          <Form.Control type="number" name="adxPeriod" value={params.adxPeriod} onChange={handleChangeParams} className="rounded-3" min="5" />
+                        <Form.Label>ADX Period</Form.Label>
+                        <OverlayTrigger overlay={renderTooltip("Number of periods for ADX calculation")}>
+                          <Form.Control
+                            type="number"
+                            name="adxPeriod"
+                            value={params.adxPeriod}
+                            onChange={handleChangeParams}
+                          />
                         </OverlayTrigger>
                       </Form.Group>
                     </Col>
                   </Row>
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button type="submit" className="mt-3 w-100 rounded-3 fw-bold" style={{ background: 'linear-gradient(45deg, #667eea, #764ba2)', border: "none", height: '50px' }} disabled={loading}>
-                      {loading ? (
-                        <>
-                          <Spinner animation="border" size="sm" className="me-2" />
-                          Running Advanced Analysis...
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-rocket me-2"></i>
-                          Launch Analysis
-                        </>
-                      )}
-                    </Button>
-                  </motion.div>
+
+                  <Button
+                    type="submit"
+                    className="mt-2 w-100 fw-bold"
+                    style={{
+                      backgroundColor: "#0d6efd",
+                      border: "none",
+                      height: "45px",
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Running Analysis...
+                      </>
+                    ) : (
+                      "Run Analysis"
+                    )}
+                  </Button>
                 </Form>
               </Card>
             </Col>
-          </motion.div>
+          </>
         ) : (
-          <Col xs={12} className="p-0 h-100">
-            {/* FIXED: Pass file prop to Analysis for downstream components like Volume */}
-            <Analysis results={results} file={file} />
-          </Col>
+          <Analysis results={results} file={file} />
         )}
       </Row>
     </Container>

@@ -102,19 +102,13 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
 
   /* ----------  render  ---------- */
   return (
-    <Container fluid className="vh-100 d-flex flex-column p-3 bg-light">
-      <motion.div
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
+    <Container fluid className="d-flex flex-column bg-light">
         <Tabs
           id="analysis-tabs"
           activeKey={key}
           onSelect={(k) => setKey(k)}
-          variant="pills"
           justify
-          className="mb-3 flex-nowrap overflow-auto"
+          className="mb-3 flex-nowrap overflow-none"
         >
           {Object.keys(panes).map((k) => (
             <Tab
@@ -129,7 +123,6 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
             />
           ))}
         </Tabs>
-      </motion.div>
 
       {/* ----- tab pane ----- */}
       <Row className="flex-grow-1 overflow-hidden">

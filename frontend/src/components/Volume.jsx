@@ -11,11 +11,11 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
   console.log('Volume received file:', file);
   console.log('Volume received initial data:', initialData);  // Debug: Check if data is passed
   /* ---------- local states ---------- */
-  const [data, setData]           = useState(initialData || null);  // FIXED: Use initialData if provided
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
+  const [data, setData] = useState(initialData || null);  // FIXED: Use initialData if provided
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [peakStart, setPeakStart] = useState('');
-  const [peakEnd, setPeakEnd]     = useState('');
+  const [peakEnd, setPeakEnd] = useState('');
   const [page, setPage] = React.useState(1);
   const [hasFetched, setHasFetched] = useState(false);  // NEW: Prevent multiple initial fetches
 
@@ -55,14 +55,14 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
   };
 
   /* ---------- auto-run once file changes (only if no initial data) ---------- */
-  useEffect(() => { 
+  useEffect(() => {
     if (file && !initialData && !hasFetched) {  // FIXED: Skip if initialData provided or already fetched
       fetchAnalysis(peakStart, peakEnd, true);
     }
   }, [file, initialData, hasFetched]);
 
   /* ---------- user clicked "Apply dates" ---------- */
-  const handlePeakApply = () => { 
+  const handlePeakApply = () => {
     fetchAnalysis(peakStart, peakEnd, false);  // NEW: Pass flag for non-initial fetch
   };
 
@@ -79,14 +79,14 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
     va_diff,
     va_vol_pct,
     supply_check,
-    peak_diff,            
+    peak_diff,
   } = data || {};
 
   const supplyColor =
     supply_check?.supply_check?.includes('Demand') ? 'success' :
-    supply_check?.supply_check?.includes('Supply')  ? 'danger'  : 'warning';
+      supply_check?.supply_check?.includes('Supply') ? 'danger' : 'warning';
 
-  const pages    = Math.ceil((volumeData || []).length / PAGE_SIZE);
+  const pages = Math.ceil((volumeData || []).length / PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
   const visibleRows = (volumeData || []).slice(startIdx, startIdx + PAGE_SIZE);
 
@@ -140,8 +140,16 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
   /* ---------- main UI ---------- */
   return (
     <Container fluid className="p-2 bg-light vh-100 d-flex flex-column">
-      <div className="flex-grow-1 overflow-auto">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <div className="flex-grow-1" style={{overflowY: "scroll",
+        overflowX: "hidden",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",}}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} style={{
+          overflowY: "scroll",
+          overflowX: "hidden",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}>
 
           {/* KPI row */}
           <Row className="g-2 mb-2">
@@ -178,12 +186,12 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
                 <Card.Body className="d-flex align-items-center gap-2 p-2">
                   <div className="fw-bold small">High-Peaks diff between</div>
                   <Form.Control type="date" size="sm" style={{ width: 160 }}
-                                value={peakStart} onChange={e => setPeakStart(e.target.value)} />
+                    value={peakStart} onChange={e => setPeakStart(e.target.value)} />
                   <span className="small">and</span>
                   <Form.Control type="date" size="sm" style={{ width: 160 }}
-                                value={peakEnd} onChange={e => setPeakEnd(e.target.value)} />
+                    value={peakEnd} onChange={e => setPeakEnd(e.target.value)} />
                   <Button size="sm" variant="primary"
-                          onClick={handlePeakApply} disabled={!peakStart || !peakEnd || loading}>
+                    onClick={handlePeakApply} disabled={!peakStart || !peakEnd || loading}>
                     {loading ? '…' : 'Apply'}
                   </Button>
                 </Card.Body>
@@ -198,11 +206,13 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
                 <Card.Header className="fw-bold bg-primary text-white py-1 px-2 small">Volume Profile</Card.Header>
                 <Card.Body className="p-1">
                   {plot && Object.keys(plot).length ? (
-                    <div className="w-100 overflow-auto" style={{ height: 320 }}>
-                      <div style={{ width: 1200, height: 700 }}>
+                    <div className="w-100 overflow-auto" >
+                      <div style={{ height: '100%' }}>
                         <Plot
                           data={plot.data}
-                          layout={{ ...plot.layout, width: 1200, height: 700, margin: { l: 40, r: 20, t: 5, b: 30 } }}
+                          layout={{ ...plot.layout, autosize: true, margin: { l: 40, r: 20, t: 50, b: 30 } }}
+                          style={{ width: '100%', height: '100%' }}
+                          useResizeHandler={true}
                           config={{ displayModeBar: false }}
                         />
                       </div>
@@ -225,11 +235,13 @@ const Volume = ({ file, data: initialData, onData }) => {  // FIXED: Accept init
                   Top Price Levels – with Date & Historical Supply Check
                 </Card.Header>
                 <Card.Body className="p-1 d-flex flex-column">
-                  <div className="w-100 overflow-auto" style={{ maxHeight: 300, scrollbarWidth: 'thin' }}>
-                    <style>{`
-                      .table-scroll::-webkit-scrollbar{width:8px;height:8px}
-                      .table-scroll::-webkit-scrollbar-thumb{background:#ced4da;border-radius:4px}
-                    `}</style>
+                  <div className="w-100 overflow-auto" style={{
+                    maxHeight: 300, scrollbarWidth: 'thin', overflowY: "scroll",
+                    overflowX: "hidden",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}>
+
                     <div className="table-scroll">
                       <Table size="sm" hover responsive className="mb-0">
                         <thead className="table-dark">

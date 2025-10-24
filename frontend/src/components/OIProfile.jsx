@@ -44,11 +44,11 @@ const OIProfile = ({ data }) => {
 
   const supplyColor =
     supply_check?.supply_check?.includes('Demand') ? 'success' :
-    supply_check?.supply_check?.includes('Supply')  ? 'danger'  : 'warning';
+      supply_check?.supply_check?.includes('Supply') ? 'danger' : 'warning';
 
   /* ----------  pagination  ---------- */
   const pages = Math.ceil((oiData?.length || 0) / ITEMS_PER_PAGE);
-  const start   = (page - 1) * ITEMS_PER_PAGE;
+  const start = (page - 1) * ITEMS_PER_PAGE;
   const visibleRows = (oiData || []).slice(start, start + ITEMS_PER_PAGE);
 
   /* ----------  reusable metric tile  ---------- */
@@ -64,9 +64,9 @@ const OIProfile = ({ data }) => {
 
   /* ----------  render  ---------- */
   return (
-    <Container fluid className="p-2 bg-light vh-100 d-flex flex-column">
+    <Container fluid className="p-2 bg-light d-flex flex-column " >
       {/* scrollable viewport ------------------------------------ */}
-      <div className="flex-grow-1 overflow-auto">
+      <div className="flex-grow-1 overflow-auto overflow-x-hidden">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
 
           {/* KPI row */}
@@ -74,7 +74,7 @@ const OIProfile = ({ data }) => {
             <Col xs={6} md={3}><Tile icon="🎯" label="POC" value={`₹${Number(poc || 0).toFixed(2)}`} color="info" /></Col>
             <Col xs={6} md={3}><Tile icon="📊" label="Total OI" value={(total_oi || 0).toLocaleString()} /></Col>
             <Col xs={6} md={3}><Tile icon="🔝" label="Top 3 %" value={`${Number(top3_pct || 0).toFixed(1)}%`} color="warning" /></Col>
-            <Col xs={6} md={3}><Tile icon="📅" label="Range" value={date_range || '—'} color="dark" /></Col>
+            <Col xs={6} md={3}><Tile icon="📅" label="Range" value={date_range || '—'} /></Col>
           </Row>
 
           {/* value area bar */}
@@ -101,11 +101,12 @@ const OIProfile = ({ data }) => {
                 <Card.Header className="fw-bold bg-primary text-white py-1 px-2 small">OI Profile Chart</Card.Header>
                 <Card.Body className="p-1">
                   {plot && Object.keys(plot).length ? (
-                    <div className="w-100 overflow-auto" style={{ height: 320 }}>
-                      <div style={{ width: 1200, height: 700 }}>
+                    <div className="w-100 overflow-auto">
+                      <div style={{ height: '100%' }}>
                         <Plot
                           data={plot.data}
-                          layout={{ ...plot.layout, width: 1200, height: 700, margin: { l: 40, r: 20, t: 10, b: 30 } }}
+                          layout={{ ...plot.layout, autosize: true, margin: { l: 40, r: 20, t: 25, b: 30 } }}
+                          style={{ width: '100%', height: '100%' }}
                           config={{ displayModeBar: false }}
                         />
                       </div>
@@ -159,7 +160,13 @@ const OIProfile = ({ data }) => {
                 <Card className="shadow-sm border-0">
                   <Card.Header className="fw-bold bg-secondary text-white py-1 px-2 small">Cumulative OI (Open-to-Close)</Card.Header>
                   <Card.Body className="p-1">
-                    <div className="w-100 overflow-auto" style={{ maxHeight: 200 }}>
+                    <div className="w-100" style={{
+                      maxHeight: 200,
+                      overflowY: "scroll",
+                      overflowX: "hidden",
+                      scrollbarWidth: "none",
+                      msOverflowStyle: "none",
+                    }}>
                       <Table size="sm" hover responsive className="mb-0">
                         <thead className="table-dark">
                           <tr>
@@ -191,12 +198,13 @@ const OIProfile = ({ data }) => {
               <Card className="shadow-sm border-0 h-100 mb-3">
                 <Card.Header className="fw-bold bg-secondary text-white py-1 px-2 small">Top OI Levels</Card.Header>
                 <Card.Body className="p-1 d-flex flex-column">
-                  <div className="w-100 overflow-auto" style={{ maxHeight: 240, scrollbarWidth: 'auto' }}>
-                    <style>{`
-                      .oi-table-scroll::-webkit-scrollbar{width:8px;height:8px}
-                      .oi-table-scroll::-webkit-scrollbar-thumb{background:#888;border-radius:4px}
-                      .oi-table-scroll::-webkit-scrollbar-track{background:#f1f1f1}
-                    `}</style>
+                  <div className="w-100 overflow-auto" style={{
+                    maxHeight: 240, scrollbarWidth: 'auto',
+                    overflowY: "scroll",
+                    overflowX: "hidden",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}>
                     <div className="oi-table-scroll">
                       <Table size="sm" hover responsive className="mb-0">
                         <thead className="table-dark">
@@ -222,7 +230,7 @@ const OIProfile = ({ data }) => {
                   {pages > 1 && (
                     <Pagination size="sm" className="mt-2 mb-1 justify-content-center">
                       <Pagination.First onClick={() => setPage(1)} disabled={page === 1} />
-                      <Pagination.Prev  onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} />
+                      <Pagination.Prev onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} />
                       {[...Array(Math.min(5, pages))].map((_, i) => {
                         const p = Math.max(1, Math.min(pages - 4, page - 2)) + i;
                         return (
@@ -232,7 +240,7 @@ const OIProfile = ({ data }) => {
                         );
                       })}
                       <Pagination.Next onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages} />
-                      <Pagination.Last  onClick={() => setPage(pages)} disabled={page === pages} />
+                      <Pagination.Last onClick={() => setPage(pages)} disabled={page === pages} />
                     </Pagination>
                   )}
 

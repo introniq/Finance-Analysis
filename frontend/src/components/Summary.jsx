@@ -37,15 +37,9 @@ const Summary = ({ data, live }) => {
 
   /* ----------  main render  ---------- */
   return (
-    <Container fluid className="py-4 px-3">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: .4 }}
-      >
-
+    <Container fluid className="px-3 ">
         {/* ----- top KPI row ----- */}
-        <Row className="g-3 mb-4">
+        <Row className="g-3 mb-4 ">
           <Col xs={6} md={2}><MetricTile icon="🏢" label="Symbol" value={metrics.symbol||'—'} color="light" /></Col>
           <Col xs={6} md><MetricTile icon="👥" label="Shares Outstanding" value={metrics.outstanding_shares?.toLocaleString()||'—'} color="light" /></Col>
           <Col xs={6} md><MetricTile icon="💰" label="Current Price" value={price ? `₹${Number(price).toFixed(2)}` : '—'} color="light" /></Col>
@@ -120,7 +114,6 @@ const Summary = ({ data, live }) => {
             </Card>
           </Col>
         </Row>
-      </motion.div>
     </Container>
   );
 };

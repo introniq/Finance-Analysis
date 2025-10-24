@@ -20,36 +20,33 @@ const Wyckoff = ({ overview, recent, plot }) => {
     );
   }
 
-  /* ----------  Helper to form natural summary  ---------- */
-  /* ----------  Helper to form natural summary  ---------- */
-const summarize = (data, label) => {
-  const events = Object.keys(data);
-  if (events.length === 0) return "";
+  /* ----------  Helper to form natural summary ---------- */
+  const summarize = (data, label) => {
+    const events = Object.keys(data);
+    if (events.length === 0) return "";
 
-  let summaryText = `Wyckoff analysis detects ${label} signals such as `;
+    let summaryText = `Wyckoff analysis detects ${label} signals such as `;
 
-  const mapped = events.map((event) => {
-    const lower = event.toLowerCase();
-    if (lower.includes("strength"))
-      return "signs of market strength and accumulation";
-    if (lower.includes("spring"))
-      return "potential bullish spring formations";
-    if (lower.includes("weakness"))
-      return "indications of distribution or market weakness";
-    if (lower.includes("upthrust"))
-      return "possible upthrust traps indicating market exhaustion";
-    if (lower.includes("test"))
-      return "testing phases validating Wyckoff patterns";
-    // fallback: just use the event name descriptively, no numbers
-    return `${event} observed in market behavior`;
-  });
+    const mapped = events.map((event) => {
+      const lower = event.toLowerCase();
+      if (lower.includes("strength"))
+        return "signs of market strength and accumulation";
+      if (lower.includes("spring"))
+        return "potential bullish spring formations";
+      if (lower.includes("weakness"))
+        return "indications of distribution or market weakness";
+      if (lower.includes("upthrust"))
+        return "possible upthrust traps indicating market exhaustion";
+      if (lower.includes("test"))
+        return "testing phases validating Wyckoff patterns";
+      return `${event} observed in market behavior`;
+    });
 
-  summaryText +=
-    ". Overall sentiment reflects mixed market conditions with ongoing Wyckoff phase transitions.";
+    summaryText +=
+      ". Overall sentiment reflects mixed market conditions with ongoing Wyckoff phase transitions.";
 
-  return summaryText;
-};
-
+    return summaryText;
+  };
 
   const overallSummary = summarize(overview, "overall");
   const recentSummary = summarize(recent, "recent");
@@ -129,21 +126,24 @@ const summarize = (data, label) => {
                   </Card.Title>
 
                   <div
-                    className="border bg-light rounded-4 p-2"
+                    className="border bg-light rounded-4 p-2 overflow-auto"
                     style={{
                       minHeight: "520px",
-                      overflowX: "auto",
-                      overflowY: "hidden",
+                      overflowX: "hidden",
+                      scrollbarWidth: "none", // Firefox
+                      msOverflowStyle: "none", // IE 10+
                     }}
                   >
+                    <style>{`
+                      .wyckoff-scroll::-webkit-scrollbar { display: none; }
+                    `}</style>
                     {plot && Object.keys(plot).length > 0 ? (
-                      <div style={{ width: "720px", height: "500px" }}>
+                      <div className="wyckoff-scroll" style={{ width: "100%", height: "100%" }}>
                         <Plot
                           data={plot.data}
                           layout={{
                             ...plot.layout,
-                            width: 700,
-                            height: 480,
+                            autosize: true,
                             margin: { l: 50, r: 40, t: 40, b: 40 },
                             paper_bgcolor: "#ffffff",
                             plot_bgcolor: "#ffffff",

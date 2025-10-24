@@ -1,43 +1,49 @@
-// Navbar.jsx
 import React from 'react';
-import { motion } from 'framer-motion';
+import { FaHome } from 'react-icons/fa';
 
 const Navbar = () => {
+  const goHome = () => {
+    window.location.reload();
+  };
+
   return (
-    <motion.div
-      initial={{ y: -50, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="d-flex align-items-center justify-content-center"
+    <div
       style={{
-        color: 'white',
+        color: 'rgba(255, 255, 255, 0.87)',
         width: '100%',
         height: '10vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
+        backgroundColor: 'rgba(72, 89, 132, 0.9)',
+        fontSize: 'clamp(1rem, 2vw, 2rem)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         fontWeight: 'bolder',
         textAlign: 'center',
-        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)',
         position: 'relative',
-        overflow: 'hidden'
+        padding: '0 1rem',
       }}
     >
-      <div style={{ zIndex: 1 }}>🚀 Algo Trading - OI & Delivery Analysis</div>
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-        animation: 'shine 2s infinite'
-      }}></div>
-      <style jsx>{`
-        @keyframes shine {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-      `}</style>
-    </motion.div>
+      <FaHome
+        onClick={goHome}
+        style={{
+          position: 'absolute',
+          left: '1rem',
+          cursor: 'pointer',
+          fontSize: 'clamp(1.5rem, 4vw, 3rem)',
+          opacity: 0.8,
+          transition: 'opacity 0.2s, transform 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = 1;
+          e.currentTarget.style.transform = 'scale(1.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = 0.8;
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      />
+      Algo Trading - OI & Delivery Analysis
+    </div>
   );
 };
 
