@@ -1,5 +1,5 @@
-// OIProfile.jsx  –  dashboard-grade, symmetric, fully visible, scroll where needed
-import React from 'react';
+// OIProfile.jsx – vertical OI × Price bar chart only
+import React, { useMemo, useState } from 'react';
 import {
   Card, Row, Col, Container, Badge, Table, Pagination
 } from 'react-bootstrap';
@@ -9,49 +9,97 @@ import { motion } from 'framer-motion';
 const ITEMS_PER_PAGE = 22;
 
 const OIProfile = ({ data }) => {
-  const [page, setPage] = React.useState(1);
+  /* ----------  single destructuring  ---------- */
+  const {
+    poc, total_oi, top3_pct, date_range, va_high, va_low, va_diff, va_oi_pct, supply_check,
+    edge_diagonal, cumulative_open_close, turnaround_point, data: oiData = []
+  } = data || {};
 
-  /* ----------  early-exit skeleton  ---------- */
-  if (!data)
-    return (
-      <Container fluid className="d-flex align-items-center justify-content-center vh-100">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-muted text-center">
-          <div className="spinner-border text-primary mb-2" role="status" style={{ width: '1.5rem', height: '1.5rem' }} />
-          <h6 className="mb-0">No OI data</h6>
-        </motion.div>
-      </Container>
+  const [page, setPage] = useState(1);
+
+  /* ----------  vertical bar chart  ---------- */
+  const chartFigure = useMemo(() => {
+    if (!oiData.length) return { data: [], layout: {} };
+
+    const prices = oiData.map((r) => parseFloat(r['Price Level']));
+    const ois    = oiData.map((r) => parseFloat(r.OI));
+    const supply = oiData.map((r) => r['Supply Check'] || '');
+
+    const colours = supply.map((s) =>
+      s.includes('Heavy') ? '#d62728' : s.includes('Demand') ? '#2ca02c' : '#1f77b4'
     );
 
-  /* ----------  destructuring with safe defaults  ---------- */
-  const {
-    data: oiData,
-    poc,
-    total_oi,
-    top3_pct,
-    date_range,
-    plot,
-    va_high,
-    va_low,
-    va_diff,
-    va_oi_pct,
-    supply_check,
-    cumulative_data,
-    /* ---- new keys ---- */
-    edge_diagonal,
-    cumulative_open_close,
-    turnaround_point,
-  } = data;
+    const bars = {
+      x: prices,
+      y: ois,
+      type: 'bar',
+      marker: { color: colours, line: { color: 'rgba(0,0,0,0.3)', width: 1 } },
+      hovertemplate: '₹%{x:.2f}<br>OI: %{y:,}<br>Supply: %{customdata}<extra></extra>',
+      customdata: supply,
+      name: 'OI',
+    };
 
+    const shapes = [];
+    const annotations = [];
+
+    // POC line
+    if (poc && !isNaN(poc)) {
+      shapes.push({
+        type: 'line', x0: poc, x1: poc, y0: 0, y1: Math.max(...ois) * 1.05,
+        line: { color: '#ff7f0e', width: 3 },
+      });
+      annotations.push({
+        x: poc, y: Math.max(...ois) * 1.06, text: `POC ₹${Number(poc).toFixed(2)}`,
+        showarrow: false, font: { color: '#ff7f0e', size: 11 },
+      });
+    }
+
+    // VA rect
+    if (va_high && va_low && !isNaN(va_high) && !isNaN(va_low)) {
+      shapes.push({
+        type: 'rect', x0: va_low, x1: va_high, y0: 0, y1: Math.max(...ois) * 1.05,
+        fillcolor: 'rgba(0,176,246,0.15)', line: { width: 0 },
+      });
+    }
+
+    // Turn-around star
+    if (turnaround_point?.turnaround_price && !isNaN(turnaround_point.turnaround_price)) {
+      annotations.push({
+        x: turnaround_point.turnaround_price, y: Math.max(...ois) * 0.95,
+        text: '★', showarrow: false, font: { size: 18, color: 'gold' },
+      });
+    }
+
+    const layout = {
+      title: `Open-Interest Profile – ${date_range || 'Full Range'}`,
+      xaxis: { title: 'Price Level (₹)', tickformat: '.2f' },
+      yaxis: { title: 'Open Interest (contracts)', tickformat: ',d' },
+      margin: { l: 60, r: 40, t: 40, b: 60 },
+      hovermode: 'x unified', shapes, annotations, showlegend: false,
+    };
+
+    return { data: [bars], layout };
+  }, [oiData, poc, va_high, va_low, turnaround_point, date_range]);
+
+  /* ----------  early exit  ---------- */
+  if (!data) return (
+    <Container fluid className="d-flex align-items-center justify-content-center vh-100">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-muted text-center">
+        <div className="spinner-border text-primary mb-2" role="status" style={{ width: '1.5rem', height: '1.5rem' }} />
+        <h6 className="mb-0">No OI data</h6>
+      </motion.div>
+    </Container>
+  );
+
+  /* ----------  rest of UI  ---------- */
   const supplyColor =
-    supply_check?.supply_check?.includes('Demand') ? 'success' :
-      supply_check?.supply_check?.includes('Supply') ? 'danger' : 'warning';
+    supply_check?.supply_check?.includes('Demand') ? 'success'
+      : supply_check?.supply_check?.includes('Supply') ? 'danger' : 'warning';
 
-  /* ----------  pagination  ---------- */
-  const pages = Math.ceil((oiData?.length || 0) / ITEMS_PER_PAGE);
+  const pages = Math.ceil((oiData.length || 0) / ITEMS_PER_PAGE);
   const start = (page - 1) * ITEMS_PER_PAGE;
-  const visibleRows = (oiData || []).slice(start, start + ITEMS_PER_PAGE);
+  const visibleRows = oiData.slice(start, start + ITEMS_PER_PAGE);
 
-  /* ----------  reusable metric tile  ---------- */
   const Tile = ({ icon, label, value, color = 'light' }) => (
     <Card bg={color} text={color === 'dark' ? 'white' : 'dark'} className="shadow-sm h-100 border-0">
       <Card.Body className="d-flex flex-column align-items-center justify-content-center p-2">
@@ -62,10 +110,15 @@ const OIProfile = ({ data }) => {
     </Card>
   );
 
-  /* ----------  render  ---------- */
+  const Kpi = ({ label, children }) => (
+    <div className="border rounded bg-light px-2 py-1 text-center">
+      <div className="small text-muted">{label}</div>
+      <div className="fw-bold fs-6">{children}</div>
+    </div>
+  );
+
   return (
-    <Container fluid className="p-2 bg-light d-flex flex-column " >
-      {/* scrollable viewport ------------------------------------ */}
+    <Container fluid className="p-2 bg-light d-flex flex-column vh-100">
       <div className="flex-grow-1 overflow-auto overflow-x-hidden">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
 
@@ -100,20 +153,19 @@ const OIProfile = ({ data }) => {
               <Card className="shadow-sm border-0">
                 <Card.Header className="fw-bold bg-primary text-white py-1 px-2 small">OI Profile Chart</Card.Header>
                 <Card.Body className="p-1">
-                  {plot && Object.keys(plot).length ? (
-                    <div className="w-100 overflow-auto">
-                      <div style={{ height: '100%' }}>
-                        <Plot
-                          data={plot.data}
-                          layout={{ ...plot.layout, autosize: true, margin: { l: 40, r: 20, t: 25, b: 30 } }}
-                          style={{ width: '100%', height: '100%' }}
-                          config={{ displayModeBar: false }}
-                        />
-                      </div>
+                  {chartFigure.data.length ? (
+                    <div className="w-100" style={{ height: '400px' }}>
+                      <Plot
+                        data={chartFigure.data}
+                        layout={chartFigure.layout}
+                        style={{ width: '100%', height: '100%' }}
+                        config={{ displayModeBar: true, displaylogo: false }}
+                      />
                     </div>
                   ) : (
                     <div className="d-flex align-items-center justify-content-center bg-light text-muted" style={{ height: 320 }}>
-                      <i className="fa fa-bar-chart fa-2x" />
+                      <i className="fa fa-bar-chart fa-2x me-2" />
+                      <span>No OI data to plot</span>
                     </div>
                   )}
                 </Card.Body>
@@ -121,7 +173,7 @@ const OIProfile = ({ data }) => {
             </Col>
           </Row>
 
-          {/* ----------  NEW : Edge / Diagonal OI  ---------- */}
+          {/* Edge / Diagonal OI */}
           {edge_diagonal && (
             <Row className="mb-2">
               <Col>
@@ -138,7 +190,7 @@ const OIProfile = ({ data }) => {
             </Row>
           )}
 
-          {/* ----------  NEW : Turn-around Point  ---------- */}
+          {/* Turn-around Point */}
           {turnaround_point && (
             <Row className="mb-2">
               <Col>
@@ -153,20 +205,14 @@ const OIProfile = ({ data }) => {
             </Row>
           )}
 
-          {/* ----------  NEW : Cumulative OI (Open-to-Close)  ---------- */}
+          {/* Cumulative OI table */}
           {cumulative_open_close && cumulative_open_close.length > 0 && (
             <Row className="mb-2">
               <Col>
                 <Card className="shadow-sm border-0">
                   <Card.Header className="fw-bold bg-secondary text-white py-1 px-2 small">Cumulative OI (Open-to-Close)</Card.Header>
                   <Card.Body className="p-1">
-                    <div className="w-100" style={{
-                      maxHeight: 200,
-                      overflowY: "scroll",
-                      overflowX: "hidden",
-                      scrollbarWidth: "none",
-                      msOverflowStyle: "none",
-                    }}>
+                    <div className="w-100" style={{ maxHeight: 200, overflowY: 'auto' }}>
                       <Table size="sm" hover responsive className="mb-0">
                         <thead className="table-dark">
                           <tr>
@@ -177,7 +223,7 @@ const OIProfile = ({ data }) => {
                         </thead>
                         <tbody>
                           {cumulative_open_close.map((row, i) => (
-                            <tr key={i} style={{ height: 20 }}>
+                            <tr key={i}>
                               <td className="text-center py-0">₹{Number(row['Price Level'] || 0).toFixed(2)}</td>
                               <td className="text-center py-0">{(row['Cum_OI_Up'] || 0).toLocaleString()}</td>
                               <td className="text-center py-0">{(row['Cum_OI_Down'] || 0).toLocaleString()}</td>
@@ -192,63 +238,39 @@ const OIProfile = ({ data }) => {
             </Row>
           )}
 
-          {/* table */}
+          {/* Top OI table */}
           <Row>
             <Col>
               <Card className="shadow-sm border-0 h-100 mb-3">
                 <Card.Header className="fw-bold bg-secondary text-white py-1 px-2 small">Top OI Levels</Card.Header>
                 <Card.Body className="p-1 d-flex flex-column">
-                  <div className="w-100 overflow-auto" style={{
-                    maxHeight: 240, scrollbarWidth: 'auto',
-                    overflowY: "scroll",
-                    overflowX: "hidden",
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                  }}>
-                    <div className="oi-table-scroll">
-                      <Table size="sm" hover responsive className="mb-0">
-                        <thead className="table-dark">
-                          <tr>
-                            <th className="text-center py-1">Price</th>
-                            <th className="text-center py-1">OI</th>
-                            <th className="text-center py-1">Share</th>
+                  <div className="w-100 overflow-auto" style={{ maxHeight: 240 }}>
+                    <Table size="sm" hover responsive className="mb-0">
+                      <thead className="table-dark">
+                        <tr>
+                          <th className="text-center py-1">Price</th>
+                          <th className="text-center py-1">OI</th>
+                          <th className="text-center py-1">Share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleRows.map((item, i) => (
+                          <tr key={i}>
+                            <td className="text-center py-0">₹{Number(item['Price Level'] || 0).toFixed(2)}</td>
+                            <td className="text-center py-0">{(item.OI || 0).toLocaleString()}</td>
+                            <td className="text-center py-0"><Badge bg="info" className="small">{(item['Percentage (%)'] || 0).toFixed(1)}%</Badge></td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {visibleRows.map((item, i) => (
-                            <tr key={i} style={{ height: 20 }}>
-                              <td className="text-center py-0">₹{Number(item['Price Level'] || 0).toFixed(2)}</td>
-                              <td className="text-center py-0">{(item.OI || 0).toLocaleString()}</td>
-                              <td className="text-center py-0"><Badge bg="info" className="small">{(item['Percentage (%)'] || 0).toFixed(1)}%</Badge></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </Table>
                   </div>
 
                   {pages > 1 && (
                     <Pagination size="sm" className="mt-2 mb-1 justify-content-center">
-                      <Pagination.First onClick={() => setPage(1)} disabled={page === 1} />
                       <Pagination.Prev onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} />
-                      {[...Array(Math.min(5, pages))].map((_, i) => {
-                        const p = Math.max(1, Math.min(pages - 4, page - 2)) + i;
-                        return (
-                          <Pagination.Item key={p} active={p === page} onClick={() => setPage(p)}>
-                            {p}
-                          </Pagination.Item>
-                        );
-                      })}
+                      <Pagination.Item active>{page}</Pagination.Item>
                       <Pagination.Next onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages} />
-                      <Pagination.Last onClick={() => setPage(pages)} disabled={page === pages} />
                     </Pagination>
-                  )}
-
-                  {cumulative_data && cumulative_data.length > 0 && (
-                    <div className="mt-2 p-2 bg-light rounded small">
-                      <strong>Cumulative:</strong> Bottom-Up {(cumulative_data[cumulative_data.length - 1]?.Cum_Pct_Bottom_Up || 0).toFixed(1)}% |
-                      Top-Down {(cumulative_data[cumulative_data.length - 1]?.Cum_Pct_Top_Down || 0).toFixed(1)}%
-                    </div>
                   )}
                 </Card.Body>
               </Card>
@@ -259,13 +281,5 @@ const OIProfile = ({ data }) => {
     </Container>
   );
 };
-
-/* ----------  tiny helper  ---------- */
-const Kpi = ({ label, children }) => (
-  <div className="border rounded bg-light px-2 py-1 text-center">
-    <div className="small text-muted">{label}</div>
-    <div className="fw-bold fs-6">{children}</div>
-  </div>
-);
 
 export default OIProfile;

@@ -1,8 +1,9 @@
+// History.jsx (unchanged, but included for completeness)
 import React, { useState, useEffect } from 'react';
 import { Card, OverlayTrigger, Tooltip, Container } from "react-bootstrap";
 import { motion } from 'framer-motion';
 
-const SERVER_BASE = "http://localhost:8051";
+const SERVER_BASE = "http://localhost:8050";
 
 const History = ({ onRunAnalysis }) => {
   const [history, setHistory] = useState([]);

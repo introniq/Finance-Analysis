@@ -1,4 +1,4 @@
-// Analysis.jsx
+/* eslint-disable react/prop-types */
 import { useState } from 'react';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
@@ -6,17 +6,18 @@ import Summary        from './Summary';
 import Volume         from './Volume';
 import OIProfile      from './OIProfile';
 import TPOProfile     from './TPOProfile';
-import Clustering     from './Clustering';
 import Trends         from './Trends';
 import Technical      from './Technical';
 import Wyckoff        from './Wyckoff';
 import Periods        from './Periods';
 import Predictive     from './Predictive';
+import FileDownloadHandler from './FileDownloadHandler';
+import MasterDashboard from './MasterDashboard'; 
 import { useLiveStream } from './useLiveStream';
 import { Card, Container, Row, Col } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 
-const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from parent (Fileuploader)
+const Analysis = ({ results, file }) => {  
   const [key, setKey] = useState('Summary');
   const { liveData } = useLiveStream(
     results?.stream_url,
@@ -37,6 +38,17 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
       </motion.div>
     );
 
+  /* ----------  detect master mode correctly  ---------- */
+  const isMasterMode = results?.summary?.master_mode === true;
+  const masterAnalysis = results?.master_analysis || {};
+
+  /* ----------  if master mode, render MasterDashboard with full results  ---------- */
+  if (isMasterMode && Object.keys(masterAnalysis).length > 0) {
+    return (
+      <MasterDashboard analysisData={results} originalFile={file} />
+    );
+  }
+
   /* ----------  reusable card wrapper  ---------- */
   const DashCard = ({ children, title }) => (
     <Card className="shadow-sm border-0 h-100">
@@ -45,7 +57,7 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
     </Card>
   );
 
-  /* ----------  tab content wrappers (kept tiny so every tab looks identical)  ---------- */
+  /* ----------  tab content wrappers  ---------- */
   const panes = {
     Summary: (
       <DashCard title="Summary">
@@ -54,7 +66,6 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
     ),
     Volume: (
       <DashCard title="Volume Profile">
-        {/* FIXED: Pass file prop to Volume for re-fetching (e.g., peak-diff picker) */}
         <Volume data={results.volume} file={file} onData={(data) => console.log('Volume data updated:', data)} />
       </DashCard>
     ),
@@ -66,11 +77,6 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
     TPOProfile: (
       <DashCard title="TPO Profile">
         <TPOProfile data={results.tpo_profile} />
-      </DashCard>
-    ),
-    Clustering: (
-      <DashCard title="Clustering">
-        <Clustering plot={results.clustering?.plot} />
       </DashCard>
     ),
     Trends: (
@@ -100,29 +106,38 @@ const Analysis = ({ results, file }) => {  // FIXED: Receive file prop from pare
     ),
   };
 
-  /* ----------  render  ---------- */
+  /* ----------  render normal mode  ---------- */
   return (
     <Container fluid className="d-flex flex-column bg-light">
-        <Tabs
-          id="analysis-tabs"
-          activeKey={key}
-          onSelect={(k) => setKey(k)}
-          justify
-          className="mb-3 flex-nowrap overflow-none"
-        >
-          {Object.keys(panes).map((k) => (
-            <Tab
-              key={k}
-              eventKey={k}
-              title={
-                <span className="d-flex align-items-center gap-1">
-                  <i className={`fa fa-${iconMap[k]}`} />
-                  <span className="d-none d-sm-inline">{k}</span>
-                </span>
-              }
-            />
-          ))}
-        </Tabs>
+      <Row className="mb-3">
+        <Col>
+          <FileDownloadHandler 
+            analysisData={results} 
+            originalFile={file}
+          />
+        </Col>
+      </Row>
+
+      <Tabs
+        id="analysis-tabs"
+        activeKey={key}
+        onSelect={(k) => setKey(k)}
+        justify
+        className="mb-3 flex-nowrap overflow-none"
+      >
+        {Object.keys(panes).map((k) => (
+          <Tab
+            key={k}
+            eventKey={k}
+            title={
+              <span className="d-flex align-items-center gap-1">
+                <i className={`fa fa-${iconMap[k]}`} />
+                <span className="d-none d-sm-inline">{k}</span>
+              </span>
+            }
+          />
+        ))}
+      </Tabs>
 
       {/* ----- tab pane ----- */}
       <Row className="flex-grow-1 overflow-hidden">

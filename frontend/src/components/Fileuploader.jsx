@@ -1,4 +1,3 @@
-// Fileuploader.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   Container,
@@ -10,7 +9,7 @@ import {
   OverlayTrigger,
   Tooltip,
   Alert,
-  Spinner
+  Spinner,
 } from "react-bootstrap";
 import { motion } from "framer-motion";
 import Analysis from "./Analysis";
@@ -18,6 +17,7 @@ import Analysis from "./Analysis";
 export default function FileAnalysisUploader({ historyFile = null }) {
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [isMasterFile, setIsMasterFile] = useState(false); // NEW: Master file toggle
   const [params, setParams] = useState({
     algorithm: "KMeans",
     daysAhead: "10",
@@ -60,44 +60,50 @@ export default function FileAnalysisUploader({ historyFile = null }) {
     setParams({ ...params, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!file) {
-    setError("Please select a file.");
-    return;
-  }
-  setLoading(true);
-  setError(null);
+    e.preventDefault();
+    if (!file) {
+      setError("Please select a file.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("params", JSON.stringify(params));
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("params", JSON.stringify(params));
+    formData.append("isMasterFile", isMasterFile.toString()); // Ensure string "true"/"false"
 
-  try {
-    // 1️⃣ Analyze request
-    const response = await fetch(`${API_BASE}/analyze`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-    setResults(data);
-    setShowResults(true);
+    try {
+      // 1️⃣ Analyze request
+      const response = await fetch(`${API_BASE}/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok)
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      setResults(data);
+      setShowResults(true);
 
-    // 2️⃣ Save file to server history
-    const saveResponse = await fetch(`http://localhost:8051/save-file`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!saveResponse.ok) throw new Error(`Save failed: ${saveResponse.statusText}`);
-  } catch (err) {
-    setError(`Analysis failed: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+      const extractedSymbol = data.summary?.metrics?.symbol || "DABUR"; // From analysis response
+      const predictiveUrl = `/predictive?symbol=${extractedSymbol}.NS`;
 
-useEffect(() => {
+      // 2️⃣ Save file to server history
+      const saveResponse = await fetch(`${API_BASE}/save-file`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!saveResponse.ok)
+        throw new Error(`Save failed: ${saveResponse.statusText}`);
+    } catch (err) {
+      setError(`Analysis failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (historyFile) {
       runAnalysisFromHistory(historyFile);
     }
@@ -107,16 +113,24 @@ useEffect(() => {
     setLoading(true);
     setShowResults(false);
     setResults(null);
+    setError(null);
     try {
-      // fetch analysis for existing file
-      const response = await fetch(`${API_BASE}/analyze?file=${filename}`);
+      // Fetch analysis for existing file using current params
+      const response = await fetch(`${API_BASE}/analyze-history`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ filename, params: { ...params, isMasterFile } }),
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      if (data.error) throw new Error(data.error);
       setResults(data);
       setShowResults(true);
       setFile({ name: filename }); // just for display
     } catch (err) {
-      console.error("Analysis failed:", err);
+      setError(`Analysis from history failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -126,8 +140,17 @@ useEffect(() => {
 
   if (error && !loading) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="container mt-4">
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="shadow-lg">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="container mt-4"
+      >
+        <Alert
+          variant="danger"
+          onClose={() => setError(null)}
+          dismissible
+          className="shadow-lg"
+        >
           <div className="d-flex align-items-center">
             <i className="fas fa-exclamation-triangle me-2"></i>
             {error}
@@ -161,7 +184,9 @@ useEffect(() => {
               <Card
                 ref={uploadRef}
                 className={`text-center p-3 rounded-4 border-2 shadow-sm d-flex align-items-center justify-content-center ${
-                  dragActive ? "border-primary bg-light" : "border-secondary bg-white"
+                  dragActive
+                    ? "border-primary bg-light"
+                    : "border-secondary bg-white"
                 }`}
                 onDragEnter={handleDrag}
                 onDragOver={handleDrag}
@@ -211,14 +236,20 @@ useEffect(() => {
                     </svg>
                   </div>
                   {file ? (
-                    <p className="fw-medium text-truncate" style={{ maxWidth: "160px" }}>
+                    <p
+                      className="fw-medium text-truncate"
+                      style={{ maxWidth: "160px" }}
+                    >
                       📄 {file.name}
                     </p>
                   ) : (
                     <>
                       <p className="fw-bold mb-1">Drag & Drop Your File</p>
                       <p className="text-muted mb-0">
-                        or <span className="text-primary text-decoration-underline">Browse</span>
+                        or{" "}
+                        <span className="text-primary text-decoration-underline">
+                          Browse
+                        </span>
                       </p>
                     </>
                   )}
@@ -229,13 +260,50 @@ useEffect(() => {
             {/* Analysis Parameters Card */}
             <Col xs={12} md={8}>
               <Card className="p-3 rounded-4 shadow-sm border-1 border-light h-100">
-                <Card.Title className="mb-3 fw-bold border-bottom pb-1">Analysis Parameters</Card.Title>
-                <Form onSubmit={handleSubmit} className="gap-2 d-flex flex-column">
+                <Card.Title className="mb-3 fw-bold border-bottom pb-1">
+                  Analysis Parameters
+                </Card.Title>
+                <Form
+                  onSubmit={handleSubmit}
+                  className="gap-2 d-flex flex-column"
+                >
+                  {/* Master File Toggle */}
+                  <Row className="mb-3">
+                    <Col>
+                      <Form.Group>
+                        <Form.Label>File Type</Form.Label>
+                        <Form.Check 
+                          type="switch"
+                          id="master-file-toggle"
+                          label={isMasterFile ? "Master File (Multi-Symbol, 3-Condition Analysis)" : "Normal File (Single-Symbol)"}
+                          checked={isMasterFile}
+                          onChange={(e) => setIsMasterFile(e.target.checked)}
+                          className="mb-2"
+                        />
+                        {isMasterFile && (
+                          <small className="text-muted d-block">
+                            ✨ Master mode analyzes multiple symbols and checks 3 conditions:
+                            <ul className="mt-1 mb-0 small">
+                              <li>📊 Delivery times {'>'} 3% in 2-3 days</li>
+                              <li>💰 Amount {'>'} 1% market cap (single day)</li>
+                              <li>📈 Accumulation {'>'} 2% market cap in 15 days</li>
+                              <li>Auto-generates highlighted Excel with qualifying rows</li>
+                            </ul>
+                          </small>
+                        )}
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
                   <Row className="mb-2">
                     <Col>
                       <Form.Group>
                         <Form.Label>Clustering Algorithm</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Select the clustering method for grouping data")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Select the clustering method for grouping data"
+                          )}
+                        >
                           <Form.Select
                             name="algorithm"
                             value={params.algorithm}
@@ -249,7 +317,11 @@ useEffect(() => {
                     <Col>
                       <Form.Group>
                         <Form.Label>Prediction Horizon (Days Ahead)</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of days ahead for price prediction")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Number of days ahead for price prediction"
+                          )}
+                        >
                           <Form.Control
                             type="number"
                             name="daysAhead"
@@ -265,7 +337,11 @@ useEffect(() => {
                     <Col>
                       <Form.Group>
                         <Form.Label>Window Size (Days)</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of past days to use for rolling analysis")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Number of past days to use for rolling analysis"
+                          )}
+                        >
                           <Form.Control
                             type="number"
                             name="windowSize"
@@ -278,7 +354,11 @@ useEffect(() => {
                     <Col>
                       <Form.Group>
                         <Form.Label>Number of Clusters</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Applicable for KMeans/Hierarchical clustering")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Applicable for KMeans/Hierarchical clustering"
+                          )}
+                        >
                           <Form.Control
                             type="number"
                             name="clusters"
@@ -294,7 +374,11 @@ useEffect(() => {
                     <Col>
                       <Form.Group>
                         <Form.Label>RSI Period</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of periods for RSI calculation")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Number of periods for RSI calculation"
+                          )}
+                        >
                           <Form.Control
                             type="number"
                             name="rsiPeriod"
@@ -307,7 +391,11 @@ useEffect(() => {
                     <Col>
                       <Form.Group>
                         <Form.Label>ADX Period</Form.Label>
-                        <OverlayTrigger overlay={renderTooltip("Number of periods for ADX calculation")}>
+                        <OverlayTrigger
+                          overlay={renderTooltip(
+                            "Number of periods for ADX calculation"
+                          )}
+                        >
                           <Form.Control
                             type="number"
                             name="adxPeriod"
@@ -318,6 +406,18 @@ useEffect(() => {
                       </Form.Group>
                     </Col>
                   </Row>
+                  {showResults && !isMasterFile && (
+                    <Button
+                      onClick={() => {
+                        const sym = results.summary?.metrics?.symbol || "DABUR";
+                        window.location.href = `/predictive?symbol=${sym}.NS`;
+                      }}
+                      variant="success"
+                    >
+                      Go to Live Predictive for{" "}
+                      {results.summary?.metrics?.symbol || "Stock"}
+                    </Button>
+                  )}
 
                   <Button
                     type="submit"
@@ -331,11 +431,15 @@ useEffect(() => {
                   >
                     {loading ? (
                       <>
-                        <Spinner animation="border" size="sm" className="me-2" />
-                        Running Analysis...
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
+                        {isMasterFile ? 'Running Master Analysis...' : 'Running Analysis...'}
                       </>
                     ) : (
-                      "Run Analysis"
+                      isMasterFile ? 'Run Master Analysis' : 'Run Analysis'
                     )}
                   </Button>
                 </Form>
